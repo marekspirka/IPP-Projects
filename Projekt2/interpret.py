@@ -1,4 +1,4 @@
-# Interpret 2nd projectnIPP
+# Interpret 2nd project IPP
 # Autor : Marek Spirka
 # login : xspir01
 
@@ -66,12 +66,46 @@ def check_header(root):
     if not ("IPPcode23" in root.attrib['language']):
         sys.exit(32)
 
+
 # zoradenie order podla cisiel
 def line_up_order(root):
     try:
         root[:] = sorted(root, key=lambda child: int(child.attrib.get('order')))
     except Exception:
         sys.exit(32)
+
+
+def check_xml(root):
+    dup_order = 0
+    for child in root:
+        child_atribute = list(child.attrib.keys())
+        if child.tag == "instruction":
+            pass
+        if "opcode" in child_atribute and "order" in child_atribute:
+            pass
+        if int(child.attrib.get('order')) > 0:
+            pass
+        if dup_order != int(child.attrib.get('order')):
+            dup_order = int(child.attrib.get('order'))
+            pass
+        else:
+            sys.exit(32)
+
+        for subElement in child:
+            if re.match(r"^(arg1|arg2|arg3)$", subElement.tag):
+                pass
+            else:
+                sys.exit(32)
+
+        duplicity = set()
+        for duplicates in child:
+            if duplicates.tag not in duplicity:
+                duplicity.add(duplicates.tag)
+            else:
+                sys.exit(32)
+
+        print(child.tag, child.attrib)
+
 
 def main():
     source, inputName = parser_argument()
@@ -85,15 +119,9 @@ def main():
         sys.exit(31)
 
     root = tree.getroot()
-
     check_header(root)
-
     line_up_order(root)
-
-    print(root.tag)
-    for child in root:
-        print(child.tag, child.attrib)
-
+    check_xml(root)
 
 
 if __name__ == '__main__':
