@@ -142,7 +142,7 @@ class Instruction:
 
 class Variables:
     def __init__(self, var_type, value):
-        self.var_type = var_type
+        self.type = var_type
         self.value = value
 
 
@@ -166,6 +166,7 @@ def var_exists(var_type, name):
             sys.exit(54)
         elif not (name in LF[len(LF) - 1].keys()):
             sys.exit(54)
+
 
 def get_variable(var_type, var_name):
     if var_type == "GF":
@@ -221,7 +222,15 @@ def check_TF_LF_GF(var_type, var_name, arg):
             sys.exit(55)
 
 
-def Interpreter(instruction, inputName):
+def is_number(number):
+    tmp = re.match("[+-]?\d+$", number)
+    if tmp is None:
+        return False
+    else:
+        return True
+
+
+def Interpreter(instruction, input_name):
     global TF
     match instruction.name:
         case "MOVE":
@@ -244,47 +253,52 @@ def Interpreter(instruction, inputName):
         case "CALL":
             call_function(instruction.arg[0], instruction.value)
         case "RETURN":
-            print("RETURN")
+            func_return()
         case "PUSHS":
-            print("PUSHS")
+            data.append(instruction.arg[0])
         case "POPS":
-            print("POPS")
+            instr_parts = instruction.arg[0].value.split("@")
+            if len(data) == 0:
+                sys.exit(56)
+            else:
+                tmp_var = data.pop()
+                save_var(instr_parts[0], instr_parts[1], tmp_var)
         case "ADD":
-            print("ADD")
+            arithmetic_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
         case "SUB":
-            print("SUB")
+            arithmetic_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
         case "MUL":
-            print("MUL")
+            arithmetic_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
         case "IDIV":
-            print("IDIV")
+            arithmetic_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
         case "LT":
-            print("LT")
+            comparisons_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
         case "GT":
-            print("GT")
+            comparisons_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
         case "EQ":
-            print("EQ")
+            comparisons_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
         case "AND":
-            print("AND")
+            logical_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
         case "OR":
-            print("OR")
+            logical_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
         case "NOT":
-            print("NOT")
+            logical_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[1])
         case "INT2CHAR":
-            print("INT2CHAR")
+            int2char(instruction.arg[0], instruction.arg[1])
         case "STRI2INT":
-            print("STRI2INT")
+            string2int(instruction.arg[0], instruction.arg[1], instruction.arg[2])
         case "READ":
-            print("READ")
+            read(instruction.arg[0], input_name)
         case "WRITE":
-            print("WRITE")
+            write(instruction.arg[0])
         case "CONCAT":
-            print("CONCAT")
+            concat(instruction.arg[0], instruction.arg[1], instruction.arg[2])
         case "STRLEN":
-            print("STRLEN")
+            strlen_func(instruction.arg[0], instruction.arg[1])
         case "GETCHAR":
-            print("GETCHAR")
+            get_char(instruction.arg[0], instruction.arg[1], instruction.arg[2])
         case "SETCHAR":
-            print("SETCHAR")
+            get_char(instruction.arg[0], instruction.arg[1], instruction.arg[2])
         case "TYPE":
             print("TYPE")
         case "LABEL":
@@ -312,12 +326,12 @@ def move(var, symbol):
 
 def def_var(variable):
     variable_parts = variable.value.split("@")
-    empty_var = Variables(None,None)
+    empty_var = Variables(None, None)
     match variable_parts[0]:
         case "LF":
             if len(LF) == 0:
                 sys.exit(52)
-            if not(variable_parts[1] in LF[len(LF)-1].keys()):
+            if not (variable_parts[1] in LF[len(LF) - 1].keys()):
                 LF[len(LF) - 1].update({variable_parts[1]: empty_var})
         case "GF":
             if variable_parts[1] in GF.keys():
@@ -340,9 +354,321 @@ def call_function(arg, position):
     call_list.append(position)
 
     if arg.value in labels.keys():
-        spot = int(labels[arg.value]-1)
+        spot = int(labels[arg.value] - 1)
     else:
         sys.exit(52)
+
+
+def func_return():
+    global spot
+    if len(call_list) == 0:
+        sys.exit(56)
+    else:
+        spot = call_list.pop
+        spot = int(spot - 1)
+
+
+def arithmetic_functions(type, var, symb1, symb2):
+    variable_parts = var.value.split("@")
+    ###################################################################################
+    result = 0
+    tmp = symb1
+    tmp2 = symb2
+
+    if symb1.type == "var":
+        variable_parts_1 = symb1.value.split("@")
+        tmp = get_variable(variable_parts_1[0], variable_parts[1])
+
+    if symb2.type == "var":
+        variable_parts_2 = symb2.value.split("@")
+        tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
+
+    if tmp.type == "int" and tmp2.type == "int":
+        if is_number(str(tmp.value)) and is_number(str(tmp2.value)):
+            match type:
+                case "ADD":
+                    result = ArgumentInstruction("int", int(tmp.value) + int(tmp2.value))
+                case "SUB":
+                    result = ArgumentInstruction("int", int(tmp.value) - int(tmp2.value))
+                case "MUL":
+                    result = ArgumentInstruction("int", int(tmp.value) * int(tmp2.value))
+                case "IDIV":
+                    result = ArgumentInstruction("int", int(tmp.value) // int(tmp2.value))
+
+            var_exists(variable_parts[0], variable_parts[1])
+            save_var(variable_parts[0], variable_parts[1], result)
+        else:
+            sys.exit(32)
+    sys.exit(53)
+
+
+def comparisons_functions(operator, var, symb1, symb2):
+    result = False
+    variable_parts = var.value.split("@")
+    variable_parts_1 = symb1.value.split("@")
+    variable_parts_2 = symb2.value.split("@")
+    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+    tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
+
+    match tmp.type and tmp2.type:
+        case "int":
+            if operator == "LT":
+                if tmp.value < tmp2.value:
+                    result = ArgumentInstruction("bool", "true")
+                else:
+                    result = ArgumentInstruction("bool", "false")
+            elif operator == "GT":
+                if tmp.value > tmp2.value:
+                    result = ArgumentInstruction("bool", "true")
+                else:
+                    result = ArgumentInstruction("bool", "false")
+            elif operator == "EQ":
+                if tmp.value == tmp2.value:
+                    result = ArgumentInstruction("bool", "true")
+                else:
+                    result = ArgumentInstruction("bool", "false")
+
+            var_exists(variable_parts[0], variable_parts[1])
+            save_var(variable_parts[0], variable_parts[1], result)
+        case "string":
+            if operator == "LT":
+                if tmp.value < tmp2.value:
+                    result = ArgumentInstruction("bool", "true")
+                else:
+                    result = ArgumentInstruction("bool", "false")
+            elif operator == "GT":
+                if tmp.value > tmp2.value:
+                    result = ArgumentInstruction("bool", "true")
+                else:
+                    result = ArgumentInstruction("bool", "false")
+            elif operator == "EQ":
+                if tmp.value == tmp2.value:
+                    result = ArgumentInstruction("bool", "true")
+                else:
+                    result = ArgumentInstruction("bool", "false")
+
+            var_exists(variable_parts[0], variable_parts[1])
+            save_var(variable_parts[0], variable_parts[1], result)
+        case "bool":
+            if operator == "LT":
+                if tmp.value == "false" and tmp2.value == "true":
+                    result = ArgumentInstruction("bool", "true")
+                else:
+                    result = ArgumentInstruction("bool", "false")
+            elif operator == "GT":
+                if tmp.value == "true" and tmp2.value == "false":
+                    result = ArgumentInstruction("bool", "true")
+                else:
+                    result = ArgumentInstruction("bool", "false")
+            elif operator == "EQ":
+                if (tmp.value == "true" and tmp2.value == "true") or (tmp.value == "false" and tmp2.value == "false"):
+                    result = ArgumentInstruction("bool", "true")
+                else:
+                    result = ArgumentInstruction("bool", "false")
+
+            var_exists(variable_parts[0], variable_parts[1])
+            save_var(variable_parts[0], variable_parts[1], result)
+
+    if operator == "EQ":
+        if tmp.type == "nil" or tmp2.type == "nil":
+            if tmp.type == "nil" and tmp2.type == "nil":
+                if tmp.value == tmp2.value:
+                    result = ArgumentInstruction("bool", "true")
+                else:
+                    result = ArgumentInstruction("bool", "false")
+        else:
+            result = ArgumentInstruction("bool", "false")
+        var_exists(variable_parts[0], variable_parts[1])
+        save_var(variable_parts[0], variable_parts[1], result)
+
+
+def logical_functions(logic, var, symb1, symb2):
+    result = False
+    variable_parts = var.value.split("@")
+    variable_parts_1 = symb1.value.split("@")
+    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+
+    if logic == "NOT":
+        if tmp.type == "bool":
+            if tmp.value == "true":
+                result = ArgumentInstruction("bool", "false")
+            elif tmp.value == "false":
+                result = ArgumentInstruction("bool", "true")
+            var_exists(variable_parts[0], variable_parts[1])
+            save_var(variable_parts[0], variable_parts[1], result)
+        else:
+            sys.exit(55)
+        return
+
+    variable_parts_2 = symb2.value.split("@")
+    tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
+    if tmp.type == "bool" and tmp2.type == "bool":
+        if logic == "AND":
+            if tmp.value == "true" and tmp2.value == "true":
+                result = ArgumentInstruction("bool", "true")
+            else:
+                result = ArgumentInstruction("bool", "false")
+            var_exists(variable_parts[0], variable_parts[1])
+            save_var(variable_parts[0], variable_parts[1], result)
+        elif logic == "OR":
+            if tmp.value == "true" or tmp2.value == "true":
+                result = ArgumentInstruction("bool", "true")
+            else:
+                result = ArgumentInstruction("bool", "false")
+            var_exists(variable_parts[0], variable_parts[1])
+            save_var(variable_parts[0], variable_parts[1], result)
+    else:
+        sys.exit(55)
+
+
+def int2char(var, number):
+    variable_parts = var.value.split("@")
+    variable_parts_1 = number.value.split("@")
+    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+
+    if tmp.type == "int":
+        string = chr(int(tmp.value))
+        result = ArgumentInstruction("string", string)
+        var_exists(variable_parts[0], variable_parts[1])
+        save_var(variable_parts[0],variable_parts[1], result)
+    else:
+        sys.exit(58)
+
+
+def string2int(var, symb1, symb2):
+    variable_parts = var.value.split("@")
+    variable_parts_1 = symb1.value.split("@")
+    variable_parts_2 = symb2.value.split("@")
+    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+    tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
+
+    if tmp.type == "string" and tmp2.type == "int" and tmp2.value <= len(tmp.value):
+        result = ArgumentInstruction("char", ord(tmp.value[tmp2.value]))
+        var_exists(variable_parts[0], variable_parts[1])
+        save_var(variable_parts[0], variable_parts[1], result)
+    else:
+        sys.exit(58)
+
+
+def read(var, input_name):
+    variable_parts = var.value.split("@")
+    empty_var = Variables("nil", "nil")
+
+    if not input_name:
+        input_string = input()
+    else:
+        f = open(input_name, "r")
+        input_string = f.read()
+
+    string_parts = input_string.split("@")
+    tmp = Variables(string_parts[0], string_parts[1])
+
+    if tmp.type == "bool" or "int" or "string":
+        result = ArgumentInstruction(tmp.type, tmp.value)
+        var_exists(variable_parts[0], variable_parts[1])
+        save_var(variable_parts[0], variable_parts[1], result)
+    else:
+        result = ArgumentInstruction(empty_var.type, empty_var.value)
+        var_exists(variable_parts[0], variable_parts[1])
+        save_var(variable_parts[0], variable_parts[1], result)
+
+
+def write(name):
+    match name.type:
+        case "bool":
+            if name.value != "true":
+                print("false", end='')
+            else:
+                print("true", end='')
+        case "string":
+            name.value = name.value.repalce("&amp", '&')
+            name.value = name.value.repalce("&lt", '<')
+            name.value = name.value.repalce("&gt", '>')
+            name.value = name.value.repalce("\\032", ' ')
+            print(name.value, end='')
+        case "var":
+            variable_parts = name.value.split("@")
+            var = get_variable(variable_parts[0], variable_parts[1])
+            if var.type == "string":
+                var.value = var.value.repalce("&amp", '&')
+                var.value = var.value.repalce("&lt", '<')
+                var.value = var.value.repalce("&gt", '>')
+                var.value = var.value.repalce("\\032", ' ')
+            if var.value is not None:
+                print(var.value, end='')
+            else:
+                print("", end='')
+        case "nil":
+            print("", end='')
+
+
+def concat(var, symb1, symb2):
+    variable_parts = var.value.split("@")
+    variable_parts_1 = symb1.value.split("@")
+    variable_parts_2 = symb2.value.split("@")
+    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+    tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
+
+    if tmp.type == "string" and tmp2.type == "string":
+        result = ArgumentInstruction("string", tmp.value + tmp2.value)
+        var_exists(variable_parts[0], variable_parts[1])
+        save_var(variable_parts[0], variable_parts[1], result)
+    else:
+        sys.exit(53)
+
+
+def strlen_func(var, symb1):
+    variable_parts = var.value.split("@")
+    variable_parts_1 = symb1.value.split("@")
+    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+
+    if tmp.value == "string":
+        result = ArgumentInstruction("int", len(tmp.value))
+        var_exists(variable_parts[0], variable_parts[1])
+        save_var(variable_parts[0], variable_parts[1], result)
+    else:
+        sys.exit(53)
+
+
+def get_char(var, symb1, symb2):
+    variable_parts = var.value.split("@")
+    variable_parts_1 = symb1.value.split("@")
+    variable_parts_2 = symb2.value.split("@")
+    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+    tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
+
+    if tmp.type == "string" and tmp2.type == "int":
+        if tmp2.value <= len(tmp.value):
+            result = ArgumentInstruction("string", tmp.value[tmp2.value])
+            var_exists(variable_parts[0], variable_parts[1])
+            save_var(variable_parts[0], variable_parts[1], result)
+        else:
+            sys.exit(58)
+    else:
+        sys.exit(53)
+
+
+def set_char(var, symb1, symb2):
+    variable_parts = var.value.split("@")
+    variable_parts_1 = symb1.value.split("@")
+    variable_parts_2 = symb2.value.split("@")
+    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+    tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
+
+    if variable_parts[0] == "GF":
+        if variable_parts[1] in GF.keys():
+            if tmp2.type == "string" and tmp.type == "int":
+                if tmp.value <= len(GF[variable_parts_1]):
+                    var_exists(variable_parts[0], variable_parts[1])
+                    GF[variable_parts_1].value[tmp.value] = tmp.value[0]
+                else:
+                    sys.exit(58)
+            else:
+                sys.exit(53)
+        else:
+            sys.exit(54)
+    else:
+        sys.exit(55)
 
 
 def add_instruction_to_class(root):
