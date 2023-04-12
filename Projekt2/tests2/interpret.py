@@ -6,7 +6,7 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 
-global spot
+spot = 0
 instructions_list = list()
 GF = dict()
 TF = None
@@ -86,41 +86,43 @@ class XMLChecker:
         except Exception:
             sys.exit(32)
 
+    def line_up_arg(self):
+        for child in self.root:
+            try:
+                child[:] = sorted(child, key=lambda child: (child.tag))
+            except Exception as e:
+                exit(32)
+
     def check_xml(self):
         self.check_header()
         self.line_up_order()
+        self.line_up_arg()
         dup_order = 0
 
         for child in self.root:
             child_attribute = list(child.attrib.keys())
             if child.tag != "instruction":
                 sys.exit(32)
-            if "opcode" in child_attribute and "order" in child_attribute:
-                pass
-            else:
+            if "opcode" not in child_attribute and "order" not in child_attribute:
                 sys.exit(32)
             if int(child.attrib.get('order')) < 0:
                 sys.exit(32)
-            if dup_order != int(child.attrib.get('order')):
-                dup_order = int(child.attrib.get('order'))
-                pass
-            else:
-                sys.exit(32)
-
             for subElement in child:
                 if re.match(r"^(arg1|arg2|arg3)$", subElement.tag):
                     pass
                 else:
                     sys.exit(32)
 
-            duplicity = set()
-            for duplicates in child:
-                if duplicates.tag not in duplicity:
-                    duplicity.add(duplicates.tag)
+            if dup_order == int(child.attrib.get('order')):
+                sys.exit(32)
+            dup_order = int(child.attrib.get('order'))
+
+            duplicates = set()
+            for tmp in child:
+                if tmp.tag not in duplicates:
+                    duplicates.add(tmp.tag)
                 else:
                     sys.exit(32)
-
-            print(child.tag, child.attrib)
 
 
 class ArgumentInstruction:
@@ -232,89 +234,197 @@ def is_number(number):
 
 def Interpreter(instruction, input_name):
     global TF
+    global LF
+
     match instruction.name:
         case "MOVE":
-            move(instruction.arg[0], instruction.arg[1])
+            if len(instruction.arg) == 2:
+                move(instruction.arg[0], instruction.arg[1])
+            else:
+                sys.exit(32)
         case "CREATEFRAME":
-            TF = dict()
+            if len(instruction.arg) == 0:
+                TF = dict()
+            else:
+                sys.exit(32)
         case "PUSHFRAME":
-            if TF is None:
-                sys.exit(55)
+            if len(instruction.arg) == 0:
+                if TF is None:
+                    sys.exit(55)
+                else:
+                    LF.append(TF)
+                TF = None
             else:
-                LF.append(TF)
-            TF = None
+                sys.exit(32)
         case "POPFRAME":
-            if len(LF) == 0:
-                sys.exit(55)
+            if len(instruction.arg) == 0:
+                if len(LF) == 0:
+                    sys.exit(55)
+                else:
+                    TF = LF.pop()
             else:
-                TF = LF.pop()
+                sys.exit(32)
         case "DEFVAR":
-            def_var(instruction.arg[0])
-        case "CALL":
-            call_function(instruction.arg[0], instruction.value)
-        case "RETURN":
-            func_return()
-        case "PUSHS":
-            data.append(instruction.arg[0])
-        case "POPS":
-            instr_parts = instruction.arg[0].value.split("@")
-            if len(data) == 0:
-                sys.exit(56)
+            if len(instruction.arg) == 1:
+                def_var(instruction.arg[0])
             else:
-                tmp_var = data.pop()
-                save_var(instr_parts[0], instr_parts[1], tmp_var)
+                sys.exit(32)
+        case "CALL":
+            if len(instruction.arg) == 1:
+                call_function(instruction.arg[0], instruction.value)
+            else:
+                sys.exit(32)
+        case "RETURN":
+            if len(instruction.arg) == 0:
+                func_return()
+            else:
+                sys.exit(32)
+        case "PUSHS":
+            if len(instruction.arg) == 1:
+                data.append(instruction.arg[0])
+            else:
+                sys.exit(32)
+        case "POPS":
+            if len(instruction.arg) == 1:
+                instr_parts = instruction.arg[0].value.split("@")
+                if len(data) == 0:
+                    sys.exit(56)
+                else:
+                    tmp_var = data.pop()
+                    save_var(instr_parts[0], instr_parts[1], tmp_var)
+            else:
+                sys.exit(32)
         case "ADD":
-            arithmetic_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            if len(instruction.arg) == 3:
+                arithmetic_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            else:
+                sys.exit(32)
         case "SUB":
-            arithmetic_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            if len(instruction.arg) == 3:
+                arithmetic_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            else:
+                sys.exit(32)
         case "MUL":
-            arithmetic_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            if len(instruction.arg) == 3:
+                arithmetic_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            else:
+                sys.exit(32)
         case "IDIV":
-            arithmetic_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            if len(instruction.arg) == 3:
+                arithmetic_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            else:
+                sys.exit(32)
         case "LT":
-            comparisons_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            if len(instruction.arg) == 3:
+                comparisons_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            else:
+                sys.exit(32)
         case "GT":
-            comparisons_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            if len(instruction.arg) == 3:
+                comparisons_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            else:
+                sys.exit(32)
         case "EQ":
-            comparisons_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            if len(instruction.arg) == 3:
+                comparisons_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            else:
+                sys.exit(32)
         case "AND":
-            logical_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            if len(instruction.arg) == 3:
+                logical_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            else:
+                sys.exit(32)
         case "OR":
-            logical_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            if len(instruction.arg) == 3:
+                logical_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            else:
+                sys.exit(32)
         case "NOT":
-            logical_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[1])
+            if len(instruction.arg) == 3:
+                logical_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[1])
+            else:
+                sys.exit(32)
         case "INT2CHAR":
-            int2char(instruction.arg[0], instruction.arg[1])
+            if len(instruction.arg) == 2:
+                int2char(instruction.arg[0], instruction.arg[1])
+            else:
+                sys.exit(32)
         case "STRI2INT":
-            string2int(instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            if len(instruction.arg) == 3:
+                string2int(instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            else:
+                sys.exit(32)
         case "READ":
-            read(instruction.arg[0], input_name)
+            if len(instruction.arg) == 2:
+                read(instruction.arg[0], input_name)
+            else:
+                sys.exit(32)
         case "WRITE":
-            write(instruction.arg[0])
+            if len(instruction.arg) == 1:
+                write(instruction.arg[0])
+            else:
+                sys.exit(32)
         case "CONCAT":
-            concat(instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            if len(instruction.arg) == 3:
+                concat(instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            else:
+                sys.exit(32)
         case "STRLEN":
-            strlen_func(instruction.arg[0], instruction.arg[1])
+            if len(instruction.arg) == 2:
+                strlen_func(instruction.arg[0], instruction.arg[1])
+            else:
+                sys.exit(32)
         case "GETCHAR":
-            get_char(instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            if len(instruction.arg) == 3:
+                get_char(instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            else:
+                sys.exit(32)
         case "SETCHAR":
-            get_char(instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            if len(instruction.arg) == 3:
+                get_char(instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            else:
+                sys.exit(32)
         case "TYPE":
-            print("TYPE")
+            if len(instruction.arg) == 2:
+                type_func(instruction.arg[0], instruction.arg[1])
+            else:
+                sys.exit(32)
         case "LABEL":
-            print("LABEL")
+            if len(instruction.arg) == 1:
+                pass
+            else:
+                sys.exit(32)
+        case "JUMP":
+            if len(instruction.arg) == 1:
+                jump(instruction.arg[0])
+            else:
+                sys.exit(32)
         case "JUMPIFEQ":
-            print("JUMPIFEQ")
+            if len(instruction.arg) == 3:
+                comparisons_jump(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            else:
+                sys.exit(32)
         case "JUMPIFNEQ":
-            print("JUMPIFNEQ")
+            if len(instruction.arg) == 3:
+                comparisons_jump(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[2])
+            else:
+                sys.exit(32)
         case "EXIT":
-            print("EXIT")
+            if len(instruction.arg) == 1:
+                exit_func(instruction.arg[0])
+            else:
+                sys.exit(32)
         case "DPRINT":
-            print("DPRINT")
+            if len(instruction.arg) == 1:
+                pass
+            else:
+                sys.exit(32)
         case "BREAK":
-            print("BREAK")
+            if len(instruction.arg) == 0:
+                pass
+            else:
+                sys.exit(32)
         case _:
-            print("Instruction fail!!")
             sys.exit(32)
 
 
@@ -580,26 +690,27 @@ def write(name):
                 print("false", end='')
             else:
                 print("true", end='')
-        case "string":
-            name.value = name.value.repalce("&amp", '&')
-            name.value = name.value.repalce("&lt", '<')
-            name.value = name.value.repalce("&gt", '>')
-            name.value = name.value.repalce("\\032", ' ')
-            print(name.value, end='')
         case "var":
             variable_parts = name.value.split("@")
             var = get_variable(variable_parts[0], variable_parts[1])
             if var.type == "string":
-                var.value = var.value.repalce("&amp", '&')
-                var.value = var.value.repalce("&lt", '<')
-                var.value = var.value.repalce("&gt", '>')
-                var.value = var.value.repalce("\\032", ' ')
+                var.value = var.value.replace("&amp", '&')
+                var.value = var.value.replace("&lt", '<')
+                var.value = var.value.replace("&gt", '>')
+                var.value = var.value.replace("\\032", ' ')
             if var.value is not None:
                 print(var.value, end='')
             else:
                 print("", end='')
         case "nil":
             print("", end='')
+
+        case _:
+            name.value = name.value.replace("&amp", '&')
+            name.value = name.value.replace("&lt", '<')
+            name.value = name.value.replace("&gt", '>')
+            name.value = name.value.replace("\\032", ' ')
+            print(name.value, end='')
 
 
 def concat(var, symb1, symb2):
@@ -671,6 +782,62 @@ def set_char(var, symb1, symb2):
         sys.exit(55)
 
 
+def type_func(var, symb1):
+    variable_parts = var.value.split("@")
+    variable_parts_1 = symb1.value.split("@")
+    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+
+    if tmp.type == "string" or "int" or "bool" or "nil":
+        result = ArgumentInstruction("string", tmp.type)
+    else:
+        result = ArgumentInstruction("string", "")
+
+    var_exists(variable_parts[0], variable_parts[1])
+    save_var(variable_parts[0], variable_parts[1], result)
+
+
+def jump(label):
+    global spot
+    if label.value in labels and label.type == "label":
+        spot = int(labels[label.value]-1)
+    else:
+        sys.exit(52)
+
+
+def comparisons_jump(operator, label, symb1, symb2):
+    if symb1.type == "var":
+        variable_parts_1 = symb1.value.split("@")
+        var_exists(variable_parts_1[0], variable_parts_1[1])
+        symb1 = get_variable(variable_parts_1[0], variable_parts_1[1])
+    if symb2.type == "var":
+        variable_parts_2 = symb2.value.split("@")
+        var_exists(variable_parts_2[0], variable_parts_2[1])
+        symb2 = get_variable(variable_parts_2[0], variable_parts_2[1])
+
+    if symb1.type != symb2.type:
+        if symb1.type == "nil" or symb2.type == "nil":
+            return
+        sys.exit(53)
+
+    if operator == "JUMPIFEQ":
+        if str(symb1.value) == str(symb2.value):
+            jump(label)
+        else:
+            return
+    if operator == "JUMPIFNEQ":
+        if str(symb1.value) != str(symb2.value):
+            jump(label)
+        else:
+            return
+
+
+def exit_func(symb):
+    if symb.type == "int" and 0 <= int(symb.value) <= 49:
+        sys.exit(int(symb.value))
+    else:
+        sys.exit(57)
+
+
 def add_instruction_to_class(root):
     instruction_count = 0
 
@@ -682,23 +849,30 @@ def add_instruction_to_class(root):
 
         instruction_count += 1
 
+    for label in instructions_list:
+        if label.name.upper() == "LABEL":
+            if not (label.arg[0].value in labels):
+                labels.update({label.arg[0].value: label.value})
+            else:
+                sys.exit(52)
+
     return instruction_count
 
 
 def main():
-    spot = 0
     input_parser = InputParser()
     source, inputName = input_parser.parse_argument()
 
     try:
-        if not source:
-            tree = ET.parse(sys.stdin)
-        else:
+        if source:
             tree = ET.parse(source)
-    except Exception:
+        else:
+            tree = ET.parse(sys.stdin)
+    except FileNotFoundError:
         sys.exit(31)
 
     root = tree.getroot()
+
     xml_parser = XMLChecker(root)
     xml_parser.check_xml()
 
@@ -706,10 +880,12 @@ def main():
     num_of_instr = add_instruction_to_class(root)
 
     # kolko mame instrukcii tolko krat volame Interpreter
-    print("\nSTART OF INTERPRETER")
+    spot = 0
     while spot != num_of_instr:
         Interpreter(instructions_list[spot], inputName)
         spot += 1
+
+    sys.exit(0)
 
 
 if __name__ == '__main__':
