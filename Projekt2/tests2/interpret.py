@@ -193,9 +193,8 @@ def get_variable(var_type, var_name):
 
 
 def save_var(var_type, var_name, symbol):
-    if re.match(r'(int|bool|string|nil|var)', symbol.type):
+    if symbol.type == "int" or "string" or "nil" or "bool":
         check_TF_LF_GF(var_type, var_name, symbol)
-
     elif symbol.type == "var":
         tmp = symbol.value.split("@")
         var_exists(tmp[0], tmp[1])
@@ -342,7 +341,7 @@ def Interpreter(instruction, input_name):
             else:
                 sys.exit(32)
         case "NOT":
-            if len(instruction.arg) == 3:
+            if len(instruction.arg) == 2:
                 logical_functions(instruction.name, instruction.arg[0], instruction.arg[1], instruction.arg[1])
             else:
                 sys.exit(32)
@@ -383,7 +382,7 @@ def Interpreter(instruction, input_name):
                 sys.exit(32)
         case "SETCHAR":
             if len(instruction.arg) == 3:
-                get_char(instruction.arg[0], instruction.arg[1], instruction.arg[2])
+                set_char(instruction.arg[0], instruction.arg[1], instruction.arg[2])
             else:
                 sys.exit(32)
         case "TYPE":
@@ -482,14 +481,12 @@ def func_return():
 
 def arithmetic_functions(type, var, symb1, symb2):
     variable_parts = var.value.split("@")
-    ###################################################################################
     result = 0
     tmp = symb1
     tmp2 = symb2
-
     if symb1.type == "var":
         variable_parts_1 = symb1.value.split("@")
-        tmp = get_variable(variable_parts_1[0], variable_parts[1])
+        tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
 
     if symb2.type == "var":
         variable_parts_2 = symb2.value.split("@")
@@ -589,6 +586,8 @@ def comparisons_functions(operator, var, symb1, symb2):
 
             var_exists(variable_parts[0], variable_parts[1])
             save_var(variable_parts[0], variable_parts[1], result)
+        case _:
+            sys.exit(53)
 
     if operator == "EQ":
         if tmp.type == "nil" or tmp2.type == "nil":
@@ -616,7 +615,7 @@ def logical_functions(logic, var, symb1, symb2):
             var_exists(variable_parts[0], variable_parts[1])
             save_var(variable_parts[0], variable_parts[1], result)
         else:
-            sys.exit(55)
+            sys.exit(53)
         return
 
     if symb1.type == "bool" and symb2.type == "bool":
@@ -635,23 +634,23 @@ def logical_functions(logic, var, symb1, symb2):
             var_exists(variable_parts[0], variable_parts[1])
             save_var(variable_parts[0], variable_parts[1], result)
     else:
-        sys.exit(55)
+        sys.exit(53)
 
-
+#to do var
 def int2char(var, number):
     variable_parts = var.value.split("@")
 
     if number.type == "nil" or "var" or "string":
-        sys.exit(58)
-
-    if 0 < int(number.value) > 1114111:
-        sys.exit(58)
+        sys.exit(53)
 
     if number.type == "int":
-        string = chr(int(number.value))
-        result = ArgumentInstruction("string", string)
-        var_exists(variable_parts[0], variable_parts[1])
-        save_var(variable_parts[0], variable_parts[1], result)
+        if 0 < int(number.value) > 1114111:
+            sys.exit(58)
+        else:
+            string = chr(int(number.value))
+            result = ArgumentInstruction("string", string)
+            var_exists(variable_parts[0], variable_parts[1])
+            save_var(variable_parts[0], variable_parts[1], result)
     else:
         sys.exit(58)
 
@@ -660,47 +659,52 @@ def string2int(var, symb1, symb2):
     variable_parts = var.value.split("@")
     tmp = symb1
     tmp2 = symb2
+
     if symb1.type == "var":
         variable_parts_1 = symb1.value.split("@")
         tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
-    if symb1.type == "var":
-        variable_parts_1 = symb1.value.split("@")
-        tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+    if symb2.type == "var":
+        variable_parts_1 = symb2.value.split("@")
+        tmp2 = get_variable(variable_parts_1[0], variable_parts_1[1])
 
-    if len(tmp.value) < int(tmp2.value):
-        sys.exit(58)
-
+    if tmp.type == "bool" or tmp2.type == "bool":
+        sys.exit(53)
     if tmp.type == "string" and tmp2.type == "int":
-        result = ArgumentInstruction("char", ord(symb1.value[int(symb2.value)]))
+        if len(tmp.value) < int(tmp2.value) or int(tmp2.value) < 0:
+            sys.exit(58)
+
+        result = ArgumentInstruction("char", ord(tmp.value[int(tmp2.value)]))
         var_exists(variable_parts[0], variable_parts[1])
         save_var(variable_parts[0], variable_parts[1], result)
     else:
-        sys.exit(58)
+        sys.exit(53)
 
 
 def read(var, type, input_name):
-    tmp = 0
+    input_string = None
     variable_parts = var.value.split("@")
     empty_var = Variables("nil", "nil")
-
     if not input_name:
         pass
     else:
         f = open(input_name, "r")
         input_string = f.read()
 
+
     string_parts = input_string.split("@")
     if len(string_parts) == 2:
-        tmp = Variables(string_parts[0], string_parts[1])
+        tmp = get_variable(string_parts[0], string_parts[1])
+    else:
+        tmp = ArgumentInstruction("string", input_string)
 
-    if type == "bool" or "int" or "string":
-        result = ArgumentInstruction(type, var.value)
+    if tmp.type in ["bool", "int", "string"]:
+        result = ArgumentInstruction(tmp, tmp.value)
         var_exists(variable_parts[0], variable_parts[1])
         save_var(variable_parts[0], variable_parts[1], result.type)
     else:
         result = ArgumentInstruction(empty_var.type, empty_var.value)
         var_exists(variable_parts[0], variable_parts[1])
-        save_var(variable_parts[0], variable_parts[1], result)
+        save_var(variable_parts[0], variable_parts[1], result.type)
 
 
 def write(name):
@@ -723,6 +727,8 @@ def write(name):
                     var.value = var.value.replace("&gt", '>')
                     var.value = var.value.replace("\\032", ' ')
                     print(var.value, end='')
+                else:
+                    print(var.value, end='')
             else:
                 print("", end='')
 
@@ -736,7 +742,6 @@ def write(name):
                 name.value = name.value.replace("&gt", '>')
                 name.value = name.value.replace("\\032", ' ')
                 print(name.value, end='')
-
 
 
 def concat(var, symb1, symb2):
@@ -766,7 +771,7 @@ def strlen_func(var, symb1):
         variable_parts_1 = symb1.value.split("@")
         tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
 
-    if tmp.value == "string":
+    if tmp.type == "string":
         result = ArgumentInstruction("int", len(tmp.value))
         var_exists(variable_parts[0], variable_parts[1])
         save_var(variable_parts[0], variable_parts[1], result)
@@ -786,8 +791,8 @@ def get_char(var, symb1, symb2):
         tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
 
     if tmp.type == "string" and tmp2.type == "int":
-        if int(tmp2.value) <= len(tmp.value):
-            result = ArgumentInstruction("string", tmp.value[tmp2.value])
+        if int(tmp2.value) < len(tmp.value):
+            result = ArgumentInstruction("string", (tmp.value[int(tmp2.value)]))
             var_exists(variable_parts[0], variable_parts[1])
             save_var(variable_parts[0], variable_parts[1], result)
         else:
@@ -798,7 +803,7 @@ def get_char(var, symb1, symb2):
 
 def set_char(var, symb1, symb2):
     variable_parts = var.value.split("@")
-    variable_parts_1 = symb1
+    var = get_variable(variable_parts[0], variable_parts[1])
     tmp = symb1
     tmp2 = symb2
     if symb1.type == "var":
@@ -811,9 +816,11 @@ def set_char(var, symb1, symb2):
     if variable_parts[0] == "GF":
         if variable_parts[1] in GF.keys():
             if tmp2.type == "string" and tmp.type == "int":
-                if tmp.value <= len(GF[variable_parts_1]):
+                if int(tmp.value) <= len(var.value):
                     var_exists(variable_parts[0], variable_parts[1])
-                    GF[variable_parts_1].value[tmp.value] = tmp.value[0]
+                    var.value = list(var.value)
+                    var.value[int(tmp.value)] = tmp2.value[0]
+                    var.value = ''.join(var.value)
                 else:
                     sys.exit(58)
             else:
@@ -880,7 +887,7 @@ def exit_func(symb):
     if symb.type == "int" and 0 <= int(symb.value) <= 49:
         sys.exit(int(symb.value))
     else:
-        sys.exit(57)
+        sys.exit(53)
 
 
 def add_instruction_to_class(root):
