@@ -103,7 +103,7 @@ class XMLChecker:
             child_attribute = list(child.attrib.keys())
             if child.tag != "instruction":
                 sys.exit(32)
-            if "opcode" not in child_attribute and "order" not in child_attribute:
+            if not ("opcode" in child_attribute) or not ("order" in child_attribute):
                 sys.exit(32)
             if int(child.attrib.get('order')) < 0:
                 sys.exit(32)
@@ -193,7 +193,7 @@ def get_variable(var_type, var_name):
 
 
 def save_var(var_type, var_name, symbol):
-    if re.match(r'(int|bool|string|nil)', symbol.type):
+    if re.match(r'(int|bool|string|nil|var)', symbol.type):
         check_TF_LF_GF(var_type, var_name, symbol)
 
     elif symbol.type == "var":
@@ -201,7 +201,8 @@ def save_var(var_type, var_name, symbol):
         var_exists(tmp[0], tmp[1])
         variable = get_variable(tmp[0], tmp[1])
         check_TF_LF_GF(var_type, var_name, variable)
-
+    elif symbol.type == "char":
+        check_TF_LF_GF(var_type, var_name, symbol)
     else:
         sys.exit(99)
 
@@ -236,6 +237,7 @@ def Interpreter(instruction, input_name):
     global TF
     global LF
 
+    #print(instruction.name)
     match instruction.name:
         case "MOVE":
             if len(instruction.arg) == 2:
@@ -356,7 +358,7 @@ def Interpreter(instruction, input_name):
                 sys.exit(32)
         case "READ":
             if len(instruction.arg) == 2:
-                read(instruction.arg[0], input_name)
+                read(instruction.arg[0], instruction.arg[1], input_name)
             else:
                 sys.exit(32)
         case "WRITE":
@@ -475,7 +477,7 @@ def func_return():
         sys.exit(56)
     else:
         spot = call_list.pop
-        spot = int(spot - 1)
+        spot = spot - 1
 
 
 def arithmetic_functions(type, var, symb1, symb2):
@@ -503,24 +505,32 @@ def arithmetic_functions(type, var, symb1, symb2):
                 case "MUL":
                     result = ArgumentInstruction("int", int(tmp.value) * int(tmp2.value))
                 case "IDIV":
-                    result = ArgumentInstruction("int", int(tmp.value) // int(tmp2.value))
+                    if int(tmp2.value) != 0:
+                        result = ArgumentInstruction("int", int(tmp.value) // int(tmp2.value))
+                    else:
+                        sys.exit(57)
 
             var_exists(variable_parts[0], variable_parts[1])
             save_var(variable_parts[0], variable_parts[1], result)
         else:
             sys.exit(32)
-    sys.exit(53)
+    else:
+        sys.exit(53)
 
 
 def comparisons_functions(operator, var, symb1, symb2):
     result = False
     variable_parts = var.value.split("@")
-    variable_parts_1 = symb1.value.split("@")
-    variable_parts_2 = symb2.value.split("@")
-    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
-    tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
+    tmp = symb1
+    tmp2 = symb2
+    if symb1.type == "var":
+        variable_parts_1 = symb1.value.split("@")
+        tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+    if symb2.type == "var":
+        variable_parts_2 = symb2.value.split("@")
+        tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
 
-    match tmp.type and tmp2.type:
+    match symb1.type and symb2.type:
         case "int":
             if operator == "LT":
                 if tmp.value < tmp2.value:
@@ -571,7 +581,8 @@ def comparisons_functions(operator, var, symb1, symb2):
                 else:
                     result = ArgumentInstruction("bool", "false")
             elif operator == "EQ":
-                if (tmp.value == "true" and tmp2.value == "true") or (tmp.value == "false" and tmp2.value == "false"):
+                if (tmp.value == "true" and tmp2.value == "true") or (
+                        tmp.value == "false" and tmp2.value == "false"):
                     result = ArgumentInstruction("bool", "true")
                 else:
                     result = ArgumentInstruction("bool", "false")
@@ -595,14 +606,12 @@ def comparisons_functions(operator, var, symb1, symb2):
 def logical_functions(logic, var, symb1, symb2):
     result = False
     variable_parts = var.value.split("@")
-    variable_parts_1 = symb1.value.split("@")
-    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
 
     if logic == "NOT":
-        if tmp.type == "bool":
-            if tmp.value == "true":
+        if symb1.type == "bool":
+            if symb1.value == "true":
                 result = ArgumentInstruction("bool", "false")
-            elif tmp.value == "false":
+            elif symb1.value == "false":
                 result = ArgumentInstruction("bool", "true")
             var_exists(variable_parts[0], variable_parts[1])
             save_var(variable_parts[0], variable_parts[1], result)
@@ -610,18 +619,16 @@ def logical_functions(logic, var, symb1, symb2):
             sys.exit(55)
         return
 
-    variable_parts_2 = symb2.value.split("@")
-    tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
-    if tmp.type == "bool" and tmp2.type == "bool":
+    if symb1.type == "bool" and symb2.type == "bool":
         if logic == "AND":
-            if tmp.value == "true" and tmp2.value == "true":
+            if symb1.value == "true" and symb2.value == "true":
                 result = ArgumentInstruction("bool", "true")
             else:
                 result = ArgumentInstruction("bool", "false")
             var_exists(variable_parts[0], variable_parts[1])
             save_var(variable_parts[0], variable_parts[1], result)
         elif logic == "OR":
-            if tmp.value == "true" or tmp2.value == "true":
+            if symb1.value == "true" or symb2.value == "true":
                 result = ArgumentInstruction("bool", "true")
             else:
                 result = ArgumentInstruction("bool", "false")
@@ -633,50 +640,63 @@ def logical_functions(logic, var, symb1, symb2):
 
 def int2char(var, number):
     variable_parts = var.value.split("@")
-    variable_parts_1 = number.value.split("@")
-    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
 
-    if tmp.type == "int":
-        string = chr(int(tmp.value))
+    if number.type == "nil" or "var" or "string":
+        sys.exit(58)
+
+    if 0 < int(number.value) > 1114111:
+        sys.exit(58)
+
+    if number.type == "int":
+        string = chr(int(number.value))
         result = ArgumentInstruction("string", string)
         var_exists(variable_parts[0], variable_parts[1])
-        save_var(variable_parts[0],variable_parts[1], result)
+        save_var(variable_parts[0], variable_parts[1], result)
     else:
         sys.exit(58)
 
 
 def string2int(var, symb1, symb2):
     variable_parts = var.value.split("@")
-    variable_parts_1 = symb1.value.split("@")
-    variable_parts_2 = symb2.value.split("@")
-    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
-    tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
+    tmp = symb1
+    tmp2 = symb2
+    if symb1.type == "var":
+        variable_parts_1 = symb1.value.split("@")
+        tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+    if symb1.type == "var":
+        variable_parts_1 = symb1.value.split("@")
+        tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
 
-    if tmp.type == "string" and tmp2.type == "int" and tmp2.value <= len(tmp.value):
-        result = ArgumentInstruction("char", ord(tmp.value[tmp2.value]))
+    if len(tmp.value) < int(tmp2.value):
+        sys.exit(58)
+
+    if tmp.type == "string" and tmp2.type == "int":
+        result = ArgumentInstruction("char", ord(symb1.value[int(symb2.value)]))
         var_exists(variable_parts[0], variable_parts[1])
         save_var(variable_parts[0], variable_parts[1], result)
     else:
         sys.exit(58)
 
 
-def read(var, input_name):
+def read(var, type, input_name):
+    tmp = 0
     variable_parts = var.value.split("@")
     empty_var = Variables("nil", "nil")
 
     if not input_name:
-        input_string = input()
+        pass
     else:
         f = open(input_name, "r")
         input_string = f.read()
 
     string_parts = input_string.split("@")
-    tmp = Variables(string_parts[0], string_parts[1])
+    if len(string_parts) == 2:
+        tmp = Variables(string_parts[0], string_parts[1])
 
-    if tmp.type == "bool" or "int" or "string":
-        result = ArgumentInstruction(tmp.type, tmp.value)
+    if type == "bool" or "int" or "string":
+        result = ArgumentInstruction(type, var.value)
         var_exists(variable_parts[0], variable_parts[1])
-        save_var(variable_parts[0], variable_parts[1], result)
+        save_var(variable_parts[0], variable_parts[1], result.type)
     else:
         result = ArgumentInstruction(empty_var.type, empty_var.value)
         var_exists(variable_parts[0], variable_parts[1])
@@ -690,35 +710,45 @@ def write(name):
                 print("false", end='')
             else:
                 print("true", end='')
+        case "int":
+            var = get_variable(name.type, name.value)
+            print(var, end='')
         case "var":
             variable_parts = name.value.split("@")
             var = get_variable(variable_parts[0], variable_parts[1])
-            if var.type == "string":
-                var.value = var.value.replace("&amp", '&')
-                var.value = var.value.replace("&lt", '<')
-                var.value = var.value.replace("&gt", '>')
-                var.value = var.value.replace("\\032", ' ')
             if var.value is not None:
-                print(var.value, end='')
+                if var.type == "string":
+                    var.value = var.value.replace("&amp", '&')
+                    var.value = var.value.replace("&lt", '<')
+                    var.value = var.value.replace("&gt", '>')
+                    var.value = var.value.replace("\\032", ' ')
+                    print(var.value, end='')
             else:
                 print("", end='')
+
         case "nil":
             print("", end='')
 
         case _:
-            name.value = name.value.replace("&amp", '&')
-            name.value = name.value.replace("&lt", '<')
-            name.value = name.value.replace("&gt", '>')
-            name.value = name.value.replace("\\032", ' ')
-            print(name.value, end='')
+            if name.type == "string":
+                name.value = name.value.replace("&amp", '&')
+                name.value = name.value.replace("&lt", '<')
+                name.value = name.value.replace("&gt", '>')
+                name.value = name.value.replace("\\032", ' ')
+                print(name.value, end='')
+
 
 
 def concat(var, symb1, symb2):
     variable_parts = var.value.split("@")
-    variable_parts_1 = symb1.value.split("@")
-    variable_parts_2 = symb2.value.split("@")
-    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
-    tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
+    tmp = symb1
+    tmp2 = symb2
+    if symb1.type == "var":
+        variable_parts_1 = symb1.value.split("@")
+        tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+    if symb2.type == "var":
+        variable_parts_2 = symb2.value.split("@")
+        tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
 
     if tmp.type == "string" and tmp2.type == "string":
         result = ArgumentInstruction("string", tmp.value + tmp2.value)
@@ -729,9 +759,12 @@ def concat(var, symb1, symb2):
 
 
 def strlen_func(var, symb1):
+    tmp = symb1
     variable_parts = var.value.split("@")
-    variable_parts_1 = symb1.value.split("@")
-    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+
+    if symb1.type == "var":
+        variable_parts_1 = symb1.value.split("@")
+        tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
 
     if tmp.value == "string":
         result = ArgumentInstruction("int", len(tmp.value))
@@ -743,13 +776,17 @@ def strlen_func(var, symb1):
 
 def get_char(var, symb1, symb2):
     variable_parts = var.value.split("@")
-    variable_parts_1 = symb1.value.split("@")
-    variable_parts_2 = symb2.value.split("@")
-    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
-    tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
+    tmp = symb1
+    tmp2 = symb2
+    if symb1.type == "var":
+        variable_parts_1 = symb1.value.split("@")
+        tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+    if symb2.type == "var":
+        variable_parts_2 = symb2.value.split("@")
+        tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
 
     if tmp.type == "string" and tmp2.type == "int":
-        if tmp2.value <= len(tmp.value):
+        if int(tmp2.value) <= len(tmp.value):
             result = ArgumentInstruction("string", tmp.value[tmp2.value])
             var_exists(variable_parts[0], variable_parts[1])
             save_var(variable_parts[0], variable_parts[1], result)
@@ -761,10 +798,15 @@ def get_char(var, symb1, symb2):
 
 def set_char(var, symb1, symb2):
     variable_parts = var.value.split("@")
-    variable_parts_1 = symb1.value.split("@")
-    variable_parts_2 = symb2.value.split("@")
-    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
-    tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
+    variable_parts_1 = symb1
+    tmp = symb1
+    tmp2 = symb2
+    if symb1.type == "var":
+        variable_parts_1 = symb1.value.split("@")
+        tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+    if symb2.type == "var":
+        variable_parts_2 = symb2.value.split("@")
+        tmp2 = get_variable(variable_parts_2[0], variable_parts_2[1])
 
     if variable_parts[0] == "GF":
         if variable_parts[1] in GF.keys():
@@ -784,8 +826,11 @@ def set_char(var, symb1, symb2):
 
 def type_func(var, symb1):
     variable_parts = var.value.split("@")
-    variable_parts_1 = symb1.value.split("@")
-    tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
+
+    tmp = symb1
+    if symb1.type == "var":
+        variable_parts_1 = symb1.value.split("@")
+        tmp = get_variable(variable_parts_1[0], variable_parts_1[1])
 
     if tmp.type == "string" or "int" or "bool" or "nil":
         result = ArgumentInstruction("string", tmp.type)
@@ -799,7 +844,7 @@ def type_func(var, symb1):
 def jump(label):
     global spot
     if label.value in labels and label.type == "label":
-        spot = int(labels[label.value]-1)
+        spot = int(labels[label.value] - 1)
     else:
         sys.exit(52)
 
